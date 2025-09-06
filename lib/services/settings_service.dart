@@ -1,55 +1,53 @@
+import 'dart:convert'; // For jsonEncode and jsonDecode
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:contact_chronicle/models/user_profile.dart'; // Import UserProfile model
 
-// Enums for user settings
-enum UserProfession { acupuncture, generalPractice, nurse }
+// Enums for user settings - these can remain here or be moved to user_profile.dart if preferred
+// For now, keeping them here as they are also used by the extensions below.
+enum UserProfession { 
+  doctor, 
+  nurse,
+  pharmacist,
+  acupuncture, 
+  ayurveda,
+  veterinary,
+  generalPractice 
+}
 enum UserTier { free, pro, proPlus }
 
 class SettingsService {
-  static const String _professionKey = 'user_profession';
-  static const String _tierKey = 'user_tier'; 
-  static const String _loggedInKey = 'user_logged_in'; // Added
+  static const String _userProfileKey = 'user_profile'; // New key for UserProfile
+  static const String _loggedInKey = 'user_logged_in';
 
-  // Default profession if none is set
-  static const UserProfession defaultProfession = UserProfession.acupuncture;
-  static const UserTier defaultTier = UserTier.free; 
+  // Default profession and tier constants are now primarily managed by UserProfile.defaultProfile()
+  // and UserProfile.fromJson() fallbacks, but can be kept for reference or direct use if needed elsewhere.
+  static const UserProfession defaultProfession = UserProfession.generalPractice;
+  static const UserTier defaultTier = UserTier.free;
 
-  Future<void> saveUserProfession(UserProfession profession) async {
+  Future<void> saveUserProfile(UserProfile userProfile) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_professionKey, profession.toString());
+    final String userProfileJson = jsonEncode(userProfile.toJson());
+    await prefs.setString(_userProfileKey, userProfileJson);
   }
 
-  Future<UserProfession> getUserProfession() async {
+  Future<UserProfile> getUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final professionString = prefs.getString(_professionKey);
-    if (professionString != null) {
+    final String? userProfileJson = prefs.getString(_userProfileKey);
+    if (userProfileJson != null && userProfileJson.isNotEmpty) {
       try {
-        return UserProfession.values.firstWhere((e) => e.toString() == professionString);
+        final Map<String, dynamic> userProfileMap = jsonDecode(userProfileJson);
+        return UserProfile.fromJson(userProfileMap);
       } catch (e) {
-        return defaultProfession;
+        // If parsing fails (e.g., corrupted data), return default profile
+        // Optionally log the error: print("Error decoding UserProfile: $e");
+        return UserProfile.defaultProfile();
       }
     }
-    return defaultProfession;
+    // If no profile is stored, return default profile
+    return UserProfile.defaultProfile();
   }
 
-  Future<void> saveUserTier(UserTier tier) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tierKey, tier.toString());
-  }
-
-  Future<UserTier> getUserTier() async {
-    final prefs = await SharedPreferences.getInstance();
-    final tierString = prefs.getString(_tierKey);
-    if (tierString != null) {
-      try {
-        return UserTier.values.firstWhere((e) => e.toString() == tierString);
-      } catch (e) {
-        return defaultTier;
-      }
-    }
-    return defaultTier;
-  }
-
-  // Added methods for login state
+  // Login state methods remain unchanged
   Future<void> saveLoginState(bool isLoggedIn) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_loggedInKey, isLoggedIn);
@@ -57,22 +55,31 @@ class SettingsService {
 
   Future<bool> getLoginState() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_loggedInKey) ?? false; // Default to false if not set
+    return prefs.getBool(_loggedInKey) ?? false;
   }
 }
 
-// Helper extension for user-friendly names
+// Helper extensions remain for display purposes
 extension UserProfessionExtension on UserProfession {
   String get displayName {
     switch (this) {
-      case UserProfession.acupuncture:
-        return 'Acupuncture';
-      case UserProfession.generalPractice:
-        return 'General Practice';
+      case UserProfession.doctor:
+        return 'Doctor';
       case UserProfession.nurse:
         return 'Nurse';
+      case UserProfession.pharmacist:
+        return 'Pharmacist';
+      case UserProfession.acupuncture:
+        return 'Acupuncture';
+      case UserProfession.ayurveda:
+        return 'Ayurveda';
+      case UserProfession.veterinary:
+        return 'Veterinary';
+      case UserProfession.generalPractice:
+        return 'General Practice';
       default:
-        return toString().split('.').last;
+        String name = toString().split('.').last;
+        return name[0].toUpperCase() + name.substring(1);
     }
   }
 }
@@ -87,7 +94,8 @@ extension UserTierExtension on UserTier {
       case UserTier.proPlus:
         return 'Pro+';
       default:
-        return toString().split('.').last;
+        String name = toString().split('.').last;
+        return name[0].toUpperCase() + name.substring(1);
     }
   }
 }
