@@ -1,5 +1,6 @@
 import 'package:contact_chronicle/models/contact.dart';
 import 'package:contact_chronicle/models/note.dart';
+import 'package:contact_chronicle/models/user_profile.dart'; // Added
 import 'package:contact_chronicle/services/settings_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,7 +13,7 @@ class NoteTimeline extends StatefulWidget {
   final String contactId;
   final Contact contact;
   final Function(String, Note) onAddNote;
-  final Future<void> Function(String noteId)? onDeleteNote; // Added
+  final Future<void> Function(String noteId)? onDeleteNote;
 
   const NoteTimeline({
     super.key,
@@ -20,7 +21,7 @@ class NoteTimeline extends StatefulWidget {
     required this.contactId,
     required this.contact,
     required this.onAddNote,
-    this.onDeleteNote, // Added
+    this.onDeleteNote,
   });
 
   @override
@@ -43,7 +44,7 @@ class _NoteTimelineState extends State<NoteTimeline> {
       return;
     }
     final newNote = Note(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // Simple unique ID for demo
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       createdAt: DateTime.now(),
       content: _noteTextController.text.trim(),
     );
@@ -53,16 +54,19 @@ class _NoteTimelineState extends State<NoteTimeline> {
   }
 
   Future<String> _getNoteTemplate() async {
-    final UserProfession userProfession = await _settingsService.getUserProfession();
+    // Fetch the full UserProfile to get the profession
+    final UserProfile userProfile = await _settingsService.getUserProfile();
+    final UserProfession profession = userProfile.profession;
     final contact = widget.contact;
+    final String currentDate = DateFormat.yMMMd().format(DateTime.now());
 
-    switch (userProfession) {
+    switch (profession) {
       case UserProfession.acupuncture:
         return '''
 **Acupuncture Session**
 - Patient: ${contact.name}
 - Age: ${contact.age ?? 'N/A'}
-- Date: ${DateFormat.yMMMd().format(DateTime.now())}
+- Date: $currentDate
 - Initial Complaints: ${contact.initialComplaints ?? 'N/A'}
 - Session Focus: 
 - Points Used: 
@@ -72,7 +76,7 @@ class _NoteTimelineState extends State<NoteTimeline> {
         return '''
 **General Consultation**
 - Patient: ${contact.name}
-- Date: ${DateFormat.yMMMd().format(DateTime.now())}
+- Date: $currentDate
 - Reason for Visit: 
 - Vitals: 
 - Assessment: 
@@ -81,15 +85,58 @@ class _NoteTimelineState extends State<NoteTimeline> {
         return '''
 **Nursing Note**
 - Patient: ${contact.name}
-- Date: ${DateFormat.yMMMd().format(DateTime.now())}
+- Date: $currentDate
 - Observation: 
 - Intervention: 
 - Evaluation: ''';
+      case UserProfession.doctor:
+        return '''
+**Doctor's Note**
+- Patient: ${contact.name}
+- Date: $currentDate
+- Chief Complaint: 
+- History of Present Illness: 
+- Examination: 
+- Assessment & Plan: ''';
+      case UserProfession.pharmacist:
+        return '''
+**Pharmacist Intervention Note**
+- Patient: ${contact.name}
+- Date: $currentDate
+- Medication Related Problem: 
+- Intervention/Recommendation: 
+- Outcome: 
+- Follow-up: ''';
+      case UserProfession.ayurveda:
+        return '''
+**Ayurvedic Consultation**
+- Patient: ${contact.name}
+- Date: $currentDate
+- Prakriti: 
+- Vikriti: 
+- Agni Status: 
+- Dhatu Status: 
+- Srotas Involved: 
+- Diagnosis: 
+- Treatment Plan (Ahara, Vihara, Aushadhi): ''';
+      case UserProfession.veterinary:
+        return '''
+**Veterinary Visit Note**
+- Patient Name: ${contact.name} (Species: )
+- Owner: 
+- Date: $currentDate
+- Reason for Visit: 
+- Examination Findings: 
+- Diagnostics: 
+- Treatment Administered: 
+- Medications Dispensed: 
+- Client Communication: 
+- Follow-up Plan: ''';
       default:
         return '''
 **New Note**
 - Patient: ${contact.name}
-- Date: ${DateFormat.yMMMd().format(DateTime.now())}
+- Date: $currentDate
 - Details: ''';
     }
   }
@@ -103,9 +150,8 @@ class _NoteTimelineState extends State<NoteTimeline> {
     _noteFocusNode.requestFocus();
   }
 
-  // Method to confirm and delete a note
   Future<void> _confirmDeleteNote(BuildContext dialogContext, Note note) async {
-    if (widget.onDeleteNote == null) return; // Callback not provided
+    if (widget.onDeleteNote == null) return;
 
     final bool? confirmed = await showDialog<bool>(
       context: dialogContext,
@@ -131,7 +177,6 @@ class _NoteTimelineState extends State<NoteTimeline> {
     if (confirmed == true) {
       try {
         await widget.onDeleteNote!(note.id);
-        // Optional: Show success SnackBar if needed, but ContactDetailsScreen will refresh
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(dialogContext).showSnackBar(
@@ -186,7 +231,7 @@ class _NoteTimelineState extends State<NoteTimeline> {
                 elevation: 1,
                 margin: const EdgeInsets.symmetric(vertical: 6.0),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                color: theme.colorScheme.surfaceContainerLowest, // Updated for consistency
+                color: theme.colorScheme.surfaceContainerLowest,
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: Column(
@@ -203,9 +248,9 @@ class _NoteTimelineState extends State<NoteTimeline> {
                               color: theme.colorScheme.primary,
                             ),
                           ),
-                          if (widget.onDeleteNote != null) // Show delete button only if callback is provided
+                          if (widget.onDeleteNote != null)
                             SizedBox(
-                              height: 24, // Constrain icon button size
+                              height: 24,
                               width: 24,
                               child: IconButton(
                                 padding: EdgeInsets.zero,
@@ -239,16 +284,16 @@ class _NoteTimelineState extends State<NoteTimeline> {
     return Container(
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface, // Updated for Material 3 consistency
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withAlpha(theme.brightness == Brightness.light ? 30 : 50), // Softer shadow
+            color: theme.shadowColor.withAlpha(theme.brightness == Brightness.light ? 30 : 50),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(100)) // Subtle border
+        border: Border.all(color: theme.colorScheme.outlineVariant.withAlpha(100))
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,10 +311,10 @@ class _NoteTimelineState extends State<NoteTimeline> {
               hintStyle: GoogleFonts.ptSans(color: theme.hintColor.withAlpha(150)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8.0),
-                borderSide: BorderSide.none, // Cleaner look, rely on container border
+                borderSide: BorderSide.none,
               ),
-              filled: true, // Add fill color
-              fillColor: theme.colorScheme.surfaceContainerHighest, // Use a surface color
+              filled: true,
+              fillColor: theme.colorScheme.surfaceContainerHighest,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             ),
             style: GoogleFonts.ptSans(fontSize: 15, color: theme.colorScheme.onSurface),
